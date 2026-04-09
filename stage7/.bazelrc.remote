@@ -1,0 +1,57 @@
+# .bazelrc.remote
+#
+# HOW TO USE
+# ──────────
+# Each developer imports this file from their personal ~/.bazelrc:
+#
+#   # ~/.bazelrc  (on developer's machine — not committed to the repo)
+#   import /path/to/repo/.bazelrc.remote
+#
+# OR the team imports it in the project .bazelrc:
+#
+#   # .bazelrc  (committed)
+#   try-import %workspace%/.bazelrc.remote   # silently ignored if absent
+#
+# KEY CONCEPT — the cache is content-addressed, not branch-aware
+# ───────────────────────────────────────────────────────────────
+# The cache key is:
+#   SHA256(action_description + all_input_file_hashes + environment)
+#
+# Branch name, commit hash, developer name — NONE of these are in the key.
+# Result: if two developers (or CI and a developer) compile the exact same
+# source files with the same flags, they share every cache entry regardless
+# of what branch they are on.
+#
+# This is the opposite of most other build caching systems (ccache, sccache
+# with branch-keyed S3 prefixes, etc.) where branches are usually isolated.
+
+# ── Remote cache endpoint ─────────────────────────────────────────
+# Replace CACHE_HOST with the hostname/IP of your bazel-remote server.
+
+# HTTP protocol (simplest to set up):
+build --remote_cache=http://CACHE_HOST:8080
+
+# OR gRPC protocol (lower overhead for large teams):
+# build --remote_cache=grpc://CACHE_HOST:9092
+
+# ── Upload policy ─────────────────────────────────────────────────
+# By default all clients upload AND download.
+# Set to true on developer machines if you only want reads (CI writes):
+# build --remote_upload_local_results=false
+
+# ── Timeouts ──────────────────────────────────────────────────────
+# How long to wait for a cache hit before falling back to local compile.
+build --remote_timeout=10s
+
+# ── Local fallback when cache is unreachable ─────────────────────
+# If the server is down, build locally instead of failing.
+build --remote_local_fallback
+
+# ── Per-config overrides ──────────────────────────────────────────
+# 'build:ci' flags apply only when you pass --config=ci
+# CI machines do the actual compilation and populate the cache.
+build:ci --remote_upload_local_results=true
+build:ci --remote_timeout=30s
+
+# Developer machines: download-only by default (don't slow CI by competing)
+build:dev --remote_upload_local_results=false

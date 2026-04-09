@@ -1,0 +1,29 @@
+## MODULE.bazel — the workspace manifest (Bazel 6+ "bzlmod" style).
+## Think of this as a replacement for the old WORKSPACE file.
+## For a simple C++ project you only need `module()`.
+
+module(
+    name = "bazel_tutorial",
+    version = "0.1.0",
+)
+
+# rules_cc provides cc_binary, cc_library, cc_test.
+# In Bazel 7+ these rules are no longer auto-loaded; you must declare
+# the dependency here AND add a load() statement in each BUILD file.
+bazel_dep(name = "rules_cc", version = "0.2.17")
+
+# @platforms provides the canonical OS/CPU constraint universe used by select().
+bazel_dep(name = "platforms", version = "1.0.0")
+
+# GoogleTest — pulled in for stage 4 (unit tests).
+# bazel_dep() is like a CMake find_package() / FetchContent combined.
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
+
+# ── Stage 6: register the cross-compilation toolchain ────────────
+# register_toolchains() is the MODULE.bazel equivalent of the old
+# WORKSPACE register_toolchains() call.
+#
+# Bazel searches this list in order when resolving a toolchain.
+# The first entry whose target_compatible_with matches the requested
+# platform wins.  Built-in auto-detected toolchains are appended last.
+register_toolchains("//stage6/toolchains:linux_arm64_toolchain")

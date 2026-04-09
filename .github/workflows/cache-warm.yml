@@ -1,0 +1,53 @@
+# .github/workflows/cache-warm.yml
+#
+# Runs on every push to main and populates the GitHub Actions cache
+# with a full build of all targets.
+#
+# Why a separate workflow?
+#   The CI workflow runs on every branch. When a developer opens a PR
+#   from a new branch, the Actions cache is scoped: the branch can READ
+#   from main's cache but not write back to it. This warm-up workflow
+#   ensures main's cache is always fresh so every PR branch starts with
+#   the maximum number of cache hits.
+#
+# See: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache
+
+name: Cache warm-up (main)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  warm:
+    name: Full build on main
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM64 cross-compiler
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          # Use the same cache key as the CI workflow so branches share it.
+          disk-cache: CI
+          repository-cache: true
+
+      - name: Build everything (native)
+        run: bazel build //...
+
+      - name: Build everything (ARM64)
+        run: |
+          bazel build \
+            --platforms=//stage6/platforms:linux_arm64 \
+            //stage6:hello
+
+      - name: Run all tests
+        run: bazel test //... --test_output=errors

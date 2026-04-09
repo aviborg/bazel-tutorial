@@ -1,0 +1,31 @@
+# stage7/docker-compose.yml
+#
+# Runs bazel-remote — the most popular open-source Bazel remote cache.
+# Drop this file on any server your team can reach (CI server, NFS host, etc.)
+#
+# Start:  docker compose up -d
+# Stop:   docker compose down
+# Logs:   docker compose logs -f
+
+services:
+  bazel-cache:
+    image: buchgr/bazel-remote-cache
+    restart: unless-stopped
+    ports:
+      - "8080:8080"    # HTTP (used by --remote_cache=http://host:8080)
+      - "9092:9092"    # gRPC (used by --remote_cache=grpc://host:9092)
+    volumes:
+      - bazel-cache-data:/data
+    command:
+      - --dir=/data
+      - --max_size=50       # GB — tune to your disk space
+      # Uncomment to require a shared secret:
+      # - --htpasswd_file=/etc/bazel-remote/htpasswd
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  bazel-cache-data:

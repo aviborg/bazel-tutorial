@@ -1,0 +1,58 @@
+# stage7/.bazelrc.disk_cache
+#
+# DISK CACHE — the simplest shared cache option.
+#
+# The disk cache stores action results and output files in a directory on
+# the local filesystem. It uses the same content-addressed keys as the
+# remote cache, so it is fully compatible with --remote_cache if you ever
+# upgrade later.
+#
+# SOLO DEVELOPER (persist the cache across bazel clean)
+# ──────────────────────────────────────────────────────
+# By default 'bazel clean' only removes bazel-bin/; the disk cache is
+# untouched. 'bazel clean --expunge' clears both.
+#
+#   build --disk_cache=~/.cache/bazel-disk
+#
+# The path can be anywhere writable. Using a directory outside the
+# workspace means it survives 'bazel clean'.
+#
+# SMALL TEAM ON A SHARED MACHINE / NFS MOUNT
+# ───────────────────────────────────────────
+# Point every developer at the same path. Bazel handles concurrent
+# reads and writes safely — there are no lock conflicts because each
+# entry is an immutable content-addressed file.
+#
+#   build --disk_cache=/mnt/nfs/bazel-cache
+#
+# COMBINING DISK CACHE AND REMOTE CACHE
+# ──────────────────────────────────────
+# You can use both at the same time. Bazel checks in this order:
+#   1. In-memory action cache (current invocation only)
+#   2. --disk_cache  (local disk)
+#   3. --remote_cache (network)
+# On a cache miss it falls back to the next level and then compiles
+# locally. The result is written back to both caches.
+#
+#   build --disk_cache=~/.cache/bazel-disk
+#   build --remote_cache=http://CACHE_HOST:8080
+
+# ── Recommended per-machine setting ──────────────────────────────
+# Commit the two lines below into the developer's own ~/.bazelrc
+# (not the project .bazelrc, since the path is machine-specific).
+#
+#   build --disk_cache=~/.cache/bazel-disk
+#
+# To set a size limit (Bazel prunes the cache when the limit is reached):
+#   build --experimental_disk_cache_gc_max_size=20g
+#   build --experimental_disk_cache_gc_max_age=14d   # evict entries older than 14 days
+
+# ── Team NFS example ─────────────────────────────────────────────
+# Add this to the project .bazelrc so it applies to every checkout:
+#
+#   build --disk_cache=/mnt/nfs/shared/bazel-cache
+#
+# Ensure the NFS mount has attribute caching disabled (noac) so that
+# newly uploaded entries are immediately visible to other machines:
+#
+#   /mnt/nfs/shared  nfshost:/exports/bazel-cache  nfs  defaults,noac  0 0

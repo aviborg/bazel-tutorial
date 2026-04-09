@@ -1,0 +1,47 @@
+# .github/workflows/ci.yml
+#
+# Runs on every push and pull request.
+# Builds all targets and runs all tests.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build-and-test:
+    name: Build & Test (Ubuntu)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # GitHub-hosted runners do not have Bazel pre-installed.
+      # bazel-contrib/setup-bazel handles installation and, crucially,
+      # caches the Bazel output base between runs so the second run
+      # is much faster.
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          # Cache the Bazel output base between workflow runs.
+          # The key includes the OS, Bazel version, and a hash of the
+          # lockfile so the cache is invalidated when deps change.
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      # Verify the lockfile is up to date.
+      # Fails the build if a developer bumped MODULE.bazel but forgot
+      # to commit the regenerated MODULE.bazel.lock.
+      - name: Check lockfile
+        run: bazel mod deps --lockfile_mode=error
+
+      - name: Build all targets
+        run: bazel build //...
+
+      - name: Run all tests
+        run: bazel test //... --test_output=errors

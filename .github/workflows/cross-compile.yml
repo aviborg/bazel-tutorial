@@ -1,0 +1,67 @@
+# .github/workflows/cross-compile.yml
+#
+# Verifies that all cross-compilation targets build correctly.
+# Runs on push/PR to main and on any branch that touches stage5/ or stage6/.
+#
+# The cross-compiler (gcc-aarch64-linux-gnu) is available on ubuntu-24.04
+# GitHub-hosted runners via apt.
+
+name: Cross-Compile
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "stage5/**"
+      - "stage6/**"
+      - "MODULE.bazel"
+      - "MODULE.bazel.lock"
+      - ".bazelrc"
+  pull_request:
+    paths:
+      - "stage5/**"
+      - "stage6/**"
+      - "MODULE.bazel"
+      - "MODULE.bazel.lock"
+      - ".bazelrc"
+
+jobs:
+  cross-compile-arm64:
+    name: Cross-compile → Linux ARM64
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM64 cross-compiler
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Set up Bazel
+        uses: bazel-contrib/setup-bazel@0.14.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      # Build the cross-compiled binary and confirm it is an ARM64 ELF.
+      - name: Build stage6 for linux_arm64
+        run: |
+          bazel build \
+            --platforms=//stage6/platforms:linux_arm64 \
+            //stage6:hello
+
+      - name: Verify ELF architecture
+        run: |
+          file bazel-bin/stage6/hello | grep -q "ARM aarch64"
+          echo "ELF check passed: binary targets ARM aarch64"
+
+      # Also confirm select() resolves correctly for ARM64.
+      - name: Build stage5 for linux_arm64
+        run: |
+          bazel build \
+            --platforms=//stage5/platforms:linux_arm64 \
+            //stage5:info

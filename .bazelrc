@@ -1,0 +1,11 @@
+# .bazelrc — project-wide Bazel flags
+# Equivalent to compiler flags you'd put at the top of a Makefile/CMakeLists.
+
+# Always build with C++17
+build --cxxopt=-std=c++17
+
+# Colorise compiler output
+build --cxxopt=-fdiagnostics-color=always
+
+# Show build timestamps
+build --show_timestamps
